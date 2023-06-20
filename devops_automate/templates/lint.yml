@@ -1,0 +1,24 @@
+
+parameters:
+- name: terraformFolder
+  # displayName: 'Le nom du dossier où se situe le code Terraform par rapport à la racine du repos'
+  type: string
+  default: terraform
+- name: vmImage
+  type: string
+
+stages:
+- stage: lint_Terraform
+  jobs:
+    - job: Linter_Job
+      pool:
+        vmImage: ${{parameters.vmImage}}
+      displayName: Scan terraform config
+      steps:
+        - script: |
+            docker pull github/super-linter:latest
+          displayName: "SETUP: Pull Github Super Linter Docker Image" 
+        - script: |
+            docker run -e RUN_LOCAL=true -e VALIDATE_TERRAFORM_FMT=true -e VALIDATE_TERRAFORM_TFLINT=true -e VALIDATE_TERRAFORM_TERRASCAN=true -e VALIDATE_ALL_CODEBASE=true -e DEFAULT_WORKSPACE=/tmp/lint/${{parameters.terraformFolder}} -v $(System.DefaultWorkingDirectory):/tmp/lint github/super-linter
+          displayName: "SCAN terraform config files"
+          continueOnError: true

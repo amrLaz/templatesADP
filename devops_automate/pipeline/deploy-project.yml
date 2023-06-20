@@ -1,0 +1,81 @@
+# ======================================================================================================================================
+trigger: none
+
+pool:
+  vmImage: 'Ubuntu-20.04'
+
+variables:
+- group: VARGRPTEMP
+# - name: AZDO_ORG_SERVICE_URL
+#   value: "$(System.CollectionUri)"
+# - name: AZDO_PERSONAL_ACCESS_TOKEN
+#   value: "$(System.AccessToken)"
+
+
+# resources:
+#   repositories:
+#     - repository: templates
+#       type: git
+#       name: terraform_infra_template
+#       ref:  master
+
+stages:
+- template: ../templates/lint.yml  # Template reference si utilise dans un autre repos mettre le path suivant jobs/lint.yml@templates
+  parameters:
+    terraformFolder: $(terraformFolder)
+    vmImage: $(vmImage)
+
+# validate terraform
+- template: ../templates/validate.yml # Template reference si utilise dans un autre repos mettre le path suivant jobs/build.yml@templates
+  parameters:
+    terraformFolder: $(terraformFolder)
+    terraformVersion: $(terraformVersion)
+    AZURE_SERVICE_CONNECTION_NAME: $(AZURE_SERVICE_CONNECTION_NAME)
+    RESOURCE_GROUP_NAME: $(RESOURCE_GROUP_NAME)
+    STORAGE_ACCOUNT_NAME: $(STORAGE_ACCOUNT_NAME)
+    CONTAINER_NAME: $(CONTAINER_NAME)
+    KEY: $(KEY)
+    vmImage: $(vmImage)
+    
+
+    
+- template: ../templates/build.yml # Template reference si utilise dans un autre repos mettre le path suivant jobs/deploy.yml@templates
+  parameters:
+    terraformFolder: $(terraformFolder)
+    terraformVersion: $(terraformVersion)
+    commandOptions: $(commandOptions)
+    AZURE_SERVICE_CONNECTION_NAME: $(AZURE_SERVICE_CONNECTION_NAME)
+    RESOURCE_GROUP_NAME: $(RESOURCE_GROUP_NAME)
+    STORAGE_ACCOUNT_NAME: $(STORAGE_ACCOUNT_NAME)
+    CONTAINER_NAME: $(CONTAINER_NAME)
+    KEY: $(KEY)
+    vmImage: $(vmImage)
+    # AZDO_ORG_SERVICE_URL: $(System.CollectionUri)
+    # AZDO_PERSONAL_ACCESS_TOKEN: $(System.AccessToken)
+
+
+- template: ../templates/deploy.yml  # Template reference si utilise dans un autre repos mettre le path suivant jobs/deploy.yml@templates
+  parameters:
+    terraformFolder: $(terraformFolder)
+    terraformVersion: $(terraformVersion)
+    commandOptions: $(commandOptions)
+    AZURE_SERVICE_CONNECTION_NAME: $(AZURE_SERVICE_CONNECTION_NAME)
+    RESOURCE_GROUP_NAME: $(RESOURCE_GROUP_NAME)
+    STORAGE_ACCOUNT_NAME: $(STORAGE_ACCOUNT_NAME)
+    CONTAINER_NAME: $(CONTAINER_NAME)
+    # KEY_DEV: $(KEY_DEV)
+    KEY: $(KEY)
+    vmImage: $(vmImage)
+ 
+
+# - template: infra-terraform-templates/deploy_prd.yml@templates  # Template reference si utilise dans un autre repos mettre le path suivant jobs/deploy.yml@templates
+#   parameters:
+#     terraformFolder: $(terraformFolder)
+#     terraformVersion: $(terraformVersion)
+#     commandOptions: $(commandOptions)
+#     AZURE_SERVICE_CONNECTION_NAME: $(AZURE_SERVICE_CONNECTION_NAME)
+#     RESOURCE_GROUP_NAME: $(RESOURCE_GROUP_NAME)
+#     STORAGE_ACCOUNT_NAME: $(STORAGE_ACCOUNT_NAME)
+#     CONTAINER_NAME: $(CONTAINER_NAME)
+#     KEY_PRD: $(KEY_PRD)
+#     vmImage: $(vmImage)

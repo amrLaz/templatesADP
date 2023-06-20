@@ -1,0 +1,51 @@
+# ======================================================================================================================================
+trigger: none
+
+pool:
+  vmImage: 'Ubuntu-20.04'
+
+variables:
+- group: VARGRPTEMP 
+
+
+# resources:
+#   repositories:
+#     - repository: templates
+#       type: git
+#       name: terraform_infra_template
+#       ref:  master
+
+stages:
+- template: ../templates/lint.yml  
+  parameters:
+    terraformFolder: $(terraformFolder)
+    vmImage: $(vmImage)
+
+# validate terraform
+- template: ../templates/validate.yml 
+  parameters:
+    terraformFolder: $(terraformFolder)
+    terraformVersion: $(terraformVersion)
+    AZURE_SERVICE_CONNECTION_NAME: $(AZURE_SERVICE_CONNECTION_NAME)
+    RESOURCE_GROUP_NAME: $(RESOURCE_GROUP_NAME)
+    STORAGE_ACCOUNT_NAME: $(STORAGE_ACCOUNT_NAME)
+    CONTAINER_NAME: $(CONTAINER_NAME)
+    KEY: $(KEY)
+    vmImage: $(vmImage)
+
+    
+ 
+
+- template: ../templates/destroy.yml  
+  parameters:
+    terraformFolder: $(terraformFolder)
+    commandOptions: $(commandOptions)
+    terraformVersion: $(terraformVersion)
+    AZURE_SERVICE_CONNECTION_NAME: $(AZURE_SERVICE_CONNECTION_NAME)
+    RESOURCE_GROUP_NAME: $(RESOURCE_GROUP_NAME)
+    STORAGE_ACCOUNT_NAME: $(STORAGE_ACCOUNT_NAME)
+    CONTAINER_NAME: $(CONTAINER_NAME)
+    KEY: $(KEY)
+    vmImage: $(vmImage)
+ 
+

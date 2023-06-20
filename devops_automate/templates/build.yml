@@ -1,0 +1,113 @@
+
+parameters:
+- name: terraformFolder
+  # displayName: 'Le nom du dossier où se situe le code Terraform par rapport à la racine du repos'
+  type: string
+  default: terraform
+- name: AZURE_SERVICE_CONNECTION_NAME
+  type: string
+  default: ADP_DSIOC_DEV
+- name: RESOURCE_GROUP_NAME
+  type: string
+- name: STORAGE_ACCOUNT_NAME
+  type: string
+# - name: KEY_DEV
+#   type: string
+# - name: KEY_VAL
+#   type: string
+- name: CONTAINER_NAME
+  type: string
+- name: vmImage
+  type: string
+- name: terraformVersion
+  type: string
+- name: commandOptions
+  type: string
+- name: KEY
+  type: string
+
+
+stages:
+- stage: Build_Terraform_Project
+  dependsOn: Validate_Terraform
+  jobs:
+  - job: BuildDevValProd
+    pool:
+      vmImage: ${{parameters.vmImage}}
+    displayName: 'Build'
+    strategy:
+      matrix:
+        DEV:  
+          ENV: 'project' 
+          KEY: ${{parameters.KEY}}
+      maxParallel: 3
+
+    steps:
+    - checkout: self
+      persistCredentials: true
+      path: s
+    # - checkout: templates
+    #   path: s/templates
+    - task: ms-devlabs.custom-terraform-tasks.custom-terraform-installer-task.TerraformInstaller@1
+      inputs:
+        terraformVersion: ${{parameters.terraformVersion}}
+
+    - task: TerraformTaskV4@4
+      displayName: 'Terraform : Init'
+      inputs:
+        backendServiceArm: ${{parameters.AZURE_SERVICE_CONNECTION_NAME}}
+        backendAzureRmResourceGroupName: ${{parameters.RESOURCE_GROUP_NAME}}
+        backendAzureRmStorageAccountName: ${{parameters.STORAGE_ACCOUNT_NAME}}
+        backendAzureRmContainerName: ${{parameters.CONTAINER_NAME}}
+        backendAzureRmKey: $(KEY)
+        workingDirectory: $(System.DefaultWorkingDirectory)/${{ parameters.terraformFolder }}
+
+    - task: CmdLine@2
+      inputs:
+        script: |
+          #!/bin/bash
+          export AZDO_ORG_SERVICE_URL="https://dev.azure.com/GroupeADP"
+          export AZDO_PERSONAL_ACCESS_TOKEN="xfydmipquzoyg7wtt6ctbiixwcay6zmikfk4qen7gikuhwg4nfha"
+          
+    - task: TerraformTaskV4@4
+      displayName: 'Terraform : Plan'
+      inputs:
+        command: 'plan'
+        environmentServiceNameAzureRM: ${{parameters.AZURE_SERVICE_CONNECTION_NAME}}
+        workingDirectory: $(System.DefaultWorkingDirectory)/${{ parameters.terraformFolder }}
+        commandOptions: ' -var AZDO_ORG_SERVICE_URL=$(System.CollectionUri) -var AZDO_PERSONAL_ACCESS_TOKEN=$(System.AccessToken)  $(commandOptions) -out=$(Build.ArtifactStagingDirectory)/$(ENV)tfplan'
+    
+    # - task: ms-devlabs.custom-terraform-tasks.custom-terraform-release-task.TerraformTaskV4@4
+    #   displayName: 'Terraform : Show Plan'
+    #   inputs:
+    #     command: show
+    #     workingDirectory: $(System.DefaultWorkingDirectory)/${{ parameters.terraformFolder }}
+    #     commandOptions: $(ENV)tfplan
+    #     outputTo: file
+    #     outputFormat: json
+    #     fileName: '$(Build.ArtifactStagingDirectory)/$(ENV)tfplan.json'
+    #     environmentServiceNameAzureRM: ${{parameters.AZURE_SERVICE_CONNECTION_NAME}}
+
+    # - task: Bash@3
+    #   displayName: 'TfPlan to txt'
+    #   inputs:
+    #     targetType: filePath
+    #     filePath: $(System.DefaultWorkingDirectory)/templates/scripts/tfplantxt.sh
+    #   env:
+    #     TF_FOLDER: ${{ parameters.terraformFolder }}
+    #     ENV: $(ENV)
+    #     AZURE_SERVICE_CONNECTION_NAME: ${{parameters.AZURE_SERVICE_CONNECTION_NAME}}
+
+    # - task: Bash@3
+    #   displayName: 'package artefact'
+    #   inputs:
+    #     targetType: filePath
+    #     filePath: $(System.DefaultWorkingDirectory)/templates/scripts/package-artifact.sh
+    #   env:
+    #     TF_FOLDER: ${{ parameters.terraformFolder }}
+    #     ENV: $(ENV)
+    
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish Artifact: drop'
+
+

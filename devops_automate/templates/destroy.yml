@@ -1,0 +1,69 @@
+
+parameters:
+- name: terraformFolder
+  # displayName: 'Le nom du dossier où se situe le code Terraform par rapport à la racine du repos'
+  type: string
+  default: terraform
+- name: AZURE_SERVICE_CONNECTION_NAME
+  type: string
+  default: ADP_DSIOC_DEV
+- name: RESOURCE_GROUP_NAME
+  type: string
+- name: STORAGE_ACCOUNT_NAME
+  type: string
+- name: KEY
+  type: string
+- name: CONTAINER_NAME
+  type: string
+- name: vmImage
+  type: string
+- name: terraformVersion
+  type: string
+- name: commandOptions
+  type: string
+
+stages:
+- stage: Destroy_Terraform_Project
+  dependsOn: Validate_Terraform
+  jobs:
+  - job: destroy
+    pool:
+      vmImage: ${{parameters.vmImage}}
+    displayName: 'Destroy'
+    strategy:
+      matrix:
+        project:  
+          ENV: 'project' 
+          KEY: ${{parameters.KEY}}
+        
+      maxParallel: 3
+
+    steps:
+    - task: ms-devlabs.custom-terraform-tasks.custom-terraform-installer-task.TerraformInstaller@1
+      inputs:
+        terraformVersion: ${{parameters.terraformVersion}}
+
+    - task: TerraformTaskV4@4
+      displayName: 'Terraform : Init'
+      inputs:
+        backendServiceArm: ${{parameters.AZURE_SERVICE_CONNECTION_NAME}}
+        backendAzureRmResourceGroupName: ${{parameters.RESOURCE_GROUP_NAME}}
+        backendAzureRmStorageAccountName: ${{parameters.STORAGE_ACCOUNT_NAME}}
+        backendAzureRmContainerName: ${{parameters.CONTAINER_NAME}}
+        backendAzureRmKey: $(KEY)
+        workingDirectory: $(System.DefaultWorkingDirectory)/${{ parameters.terraformFolder }}
+        
+    
+    - task: TerraformTaskV4@4
+      displayName: 'Terraform : Destroy'
+      inputs:
+        provider: 'azurerm'
+        command: 'destroy'
+        commandOptions: -var AZDO_ORG_SERVICE_URL=$(System.CollectionUri) -var AZDO_PERSONAL_ACCESS_TOKEN=$(System.AccessToken) $(commandOptions) -auto-approve
+        environmentServiceNameAzureRM: ${{parameters.AZURE_SERVICE_CONNECTION_NAME}}
+        backendServiceArm: ${{parameters.AZURE_SERVICE_CONNECTION_NAME}}
+        backendAzureRmResourceGroupName: ${{parameters.RESOURCE_GROUP_NAME}}
+        backendAzureRmStorageAccountName: ${{parameters.STORAGE_ACCOUNT_NAME}}
+        backendAzureRmContainerName: ${{parameters.CONTAINER_NAME}}
+        backendAzureRmKey: $(KEY)
+        workingDirectory: $(System.DefaultWorkingDirectory)/${{ parameters.terraformFolder }}

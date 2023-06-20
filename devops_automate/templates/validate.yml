@@ -1,0 +1,68 @@
+parameters:
+- name: terraformFolder
+  type: string
+  default: terraform
+- name: AZURE_SERVICE_CONNECTION_NAME
+  type: string
+  default: ADP_DSIOC_DEV
+- name: RESOURCE_GROUP_NAME
+  type: string
+- name: STORAGE_ACCOUNT_NAME
+  type: string
+- name: KEY
+  type: string
+- name: CONTAINER_NAME
+  type: string
+- name: vmImage
+  type: string
+- name: terraformVersion
+  type: string
+
+
+
+stages:
+- stage: Validate_Terraform
+  jobs:
+  - job: validate_terraform
+    pool:
+      vmImage: ${{parameters.vmImage}}
+    displayName: 'Validate terraform'
+    strategy:
+      matrix:
+        DEV:
+          ENV: 'dev' 
+          KEY: ${{parameters.KEY}}
+        # VAL:
+        #   ENV: 'val' 
+        #   KEY: ${{parameters.KEY_DEV}}
+        # PRD:
+        #   ENV: 'prd' 
+        #   KEY: ${{parameters.KEY_DEV}}
+        
+      maxParallel: 3
+    steps:
+    - task: ms-devlabs.custom-terraform-tasks.custom-terraform-installer-task.TerraformInstaller@1
+      inputs:
+        terraformVersion: ${{parameters.terraformVersion}}
+
+    - task: TerraformTaskV4@4
+      displayName: 'Terraform : Init'
+      inputs:
+        backendServiceArm: ${{parameters.AZURE_SERVICE_CONNECTION_NAME}}
+        backendAzureRmResourceGroupName: ${{parameters.RESOURCE_GROUP_NAME}}
+        backendAzureRmStorageAccountName: ${{parameters.STORAGE_ACCOUNT_NAME}}
+        backendAzureRmContainerName: ${{parameters.CONTAINER_NAME}}
+        backendAzureRmKey: $(KEY)
+        workingDirectory: $(System.DefaultWorkingDirectory)/${{ parameters.terraformFolder }}
+
+    - task: TerraformCLI@0
+      displayName: 'Terraform : fmt'
+      inputs:
+        command: fmt
+      continueOnError: true
+
+    - task: TerraformTaskV4@4
+      displayName: 'Terraform : Validate'
+      inputs:
+        command: validate
+        workingDirectory: $(System.DefaultWorkingDirectory)/${{ parameters.terraformFolder }}
