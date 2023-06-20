@@ -1,0 +1,82 @@
+
+parameters:
+- name: terraformFolder
+  # displayName: 'Le nom du dossier où se situe le code Terraform par rapport à la racine du repos'
+  type: string
+  default: terraform
+- name: AZURE_SERVICE_CONNECTION_NAME
+  type: string
+  default: ADP_DSIOC_DEV
+- name: RESOURCE_GROUP_NAME
+  type: string
+- name: STORAGE_ACCOUNT_NAME
+  type: string
+- name: KEY_PRD
+  type: string
+- name: CONTAINER_NAME
+  type: string
+- name: vmImage
+  type: string
+- name: terraformVersion
+  type: string
+- name: commandOptions
+  type: string
+
+stages:
+- stage: Deploy_Terraform_PRD
+  dependsOn: Deploy_Terraform_DEV_VAL_Stage
+  condition: succeeded('Deploy_Terraform_DEV_VAL_Stage')
+  jobs:
+  - deployment: 'DeployToProd'
+    displayName: 'Deploy PRD'
+    pool:
+      vmImage: ${{parameters.vmImage}}
+    environment: 'prod'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - checkout: self
+            persistCredentials: true
+            path: s
+          - checkout: templates
+            path: s/templates
+          
+          - task: DownloadBuildArtifacts@1
+            inputs:
+              buildType: 'current'
+              downloadType: 'single'
+              artifactName: 'drop'
+              itemPattern: 'drop/**'
+              downloadPath: '$(System.ArtifactsDirectory)'
+
+          - task: ms-devlabs.custom-terraform-tasks.custom-terraform-installer-task.TerraformInstaller@1
+            inputs:
+              terraformVersion: ${{parameters.terraformVersion}}
+
+          - task: TerraformTaskV4@4
+            displayName: 'Terraform : Init'
+            inputs:
+              backendServiceArm: ${{parameters.AZURE_SERVICE_CONNECTION_NAME}}
+              backendAzureRmResourceGroupName: ${{parameters.RESOURCE_GROUP_NAME}}
+              backendAzureRmStorageAccountName: ${{parameters.STORAGE_ACCOUNT_NAME}}
+              backendAzureRmContainerName: ${{parameters.CONTAINER_NAME}}
+              backendAzureRmKey: ${{parameters.KEY_PRD}}
+              workingDirectory: $(System.DefaultWorkingDirectory)/${{ parameters.terraformFolder }}
+        
+          - task: TerraformTaskV4@4
+            displayName: 'Terraform : Apply'
+            inputs:
+              command: apply
+              workingDirectory: $(System.DefaultWorkingDirectory)/${{ parameters.terraformFolder }}
+              environmentServiceNameAzureRM: ${{parameters.AZURE_SERVICE_CONNECTION_NAME}}
+              commandOptions: $(System.ArtifactsDirectory)/drop/prodtfplan 
+              backendServiceArm: ${{parameters.AZURE_SERVICE_CONNECTION_NAME}}
+              backendAzureRmResourceGroupName: ${{parameters.RESOURCE_GROUP_NAME}}
+              backendAzureRmStorageAccountName: ${{parameters.STORAGE_ACCOUNT_NAME}}
+              backendAzureRmContainerName: ${{parameters.CONTAINER_NAME}}
+              backendAzureRmKey: ${{parameters.KEY_PRD}}
+            
+        
+          
+        
